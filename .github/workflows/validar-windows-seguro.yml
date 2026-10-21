@@ -1,10 +1,5 @@
 name: Validacao Windows protegida
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/validar-windows-seguro.yml'
-      - '.validation/runner.py'
-      - '.validation/start.txt'
   workflow_dispatch:
 permissions:
   contents: read
