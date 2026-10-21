@@ -1,0 +1,48 @@
+name: Validacao Windows protegida
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/validar-windows-seguro.yml'
+      - '.validation/runner.py'
+      - '.validation/start.txt'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-validation:
+    name: Testes em Windows nativo
+    runs-on: windows-2022
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+      - name: Preparar transporte protegido
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_OS -ne 'Windows') { throw 'Windows nativo obrigatorio' }
+          python -m pip install cryptography --disable-pip-version-check --no-input
+          if ($LASTEXITCODE -ne 0) { throw 'Falha na dependencia de transporte' }
+          python .validation/runner.py prepare
+          if ($LASTEXITCODE -ne 0) { throw 'Falha na chave efemera' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-key-${{ github.run_id }}
+          path: ${{ runner.temp }}/confidential-windows-validation/public.json
+          retention-days: 1
+          if-no-files-found: error
+      - name: Executar carga confidencial no Windows
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          VALIDATION_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          python .validation/runner.py execute
+          if ($LASTEXITCODE -ne 0) { throw 'Validacao interrompida' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: encrypted-result-${{ github.run_id }}
+          path: ${{ runner.temp }}/confidential-windows-validation/result.json
+          retention-days: 1
+          if-no-files-found: warn
