@@ -1,0 +1,35 @@
+name: Verificar ambiente Windows
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-native:
+    name: Windows nativo
+    runs-on: windows-2022
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Confirmar sistema operacional e ferramentas
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_OS -ne 'Windows' -or [Environment]::OSVersion.Platform -ne 'Win32NT') {
+            throw 'Esta verificacao exige Windows nativo.'
+          }
+          $os = Get-CimInstance Win32_OperatingSystem
+          $probe = [ordered]@{
+            validation = 'WINDOWS_ENVIRONMENT_ONLY'
+            os_caption = $os.Caption
+            os_version = $os.Version
+            architecture = $os.OSArchitecture
+            runner_os = $env:RUNNER_OS
+            python = (& python --version | Out-String).Trim()
+            powershell = $PSVersionTable.PSVersion.ToString()
+            scanner_tests_executed = $false
+          }
+          $probe | ConvertTo-Json
+          cmd.exe /d /c ver
+          if ($LASTEXITCODE -ne 0) { throw 'cmd.exe falhou.' }
